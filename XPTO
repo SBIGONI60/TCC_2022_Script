@@ -1,0 +1,627 @@
+}
+
+######################################################################################
+##############################  INICIAL  #############################################
+######################################################################################
+# PACOTE UTILIZADO PARA DOWNLOAD E PRÉ-PROCESSAMENTO DE DADOS
+# "Microdatasus: pacote para download e pré-processamento de microdados do Departamento de Informática do SUS (DATASUS)"
+#cff-version: 1.2.0
+#message: "If you use this software, please cite it as below."
+#authors:
+#- family-names: "Saldanha"
+#  given-names: "Raphael de Freitas"
+#  orcid: "http://orcid.org/0000-0003-0652-8466"
+#- family-names: "Bastos"
+#  given-names: "Ronaldo Rocha"
+#  orcid: "http://orcid.org/0000-0001-9597-5967"
+#- family-names: "Barcellos"
+#  given-names: "Christovam"
+#  orcid: "http://orcid.org/0000-0002-1161-2753"
+#title: "Microdatasus: pacote para download e pré-processamento de microdados do Departamento de Informática do SUS (DATASUS)"
+#version: 1.0.0
+#doi: 10.1590/0102-311X00032419
+#date-released: 2019-09-16
+#url: "http://ref.scielo.org/dhcq3y"
+
+
+install.packages("tidyverse")
+install.packages("dplyr")
+install.packages("readxl")
+install.packages("writexl")
+install.packages("devtools")
+install.packages("microdatasus")
+
+library("tidyverse")
+library("dplyr")
+library("readxl")
+library("writexl")
+library("devtools")
+library("microdatasus")
+
+
+for(i in 2014:2020){
+  
+  if (i <= 2019) {
+  dados_SP <- fetch_datasus(year_start= i,month_start=1,year_end= i,month_end=12,uf="SP",
+                            information_system="SIH-RD", vars = NULL)} else {
+                              dados_SP <- fetch_datasus(year_start= i,month_start=1,year_end= i,month_end=3,uf="SP",
+                                                        information_system="SIH-RD", vars = NULL)}
+  
+  # Filtrando somente estabelecimentos na cidade de São Paulo e Diagnóstico Principal =
+  # Problemas Oncológicos no Ano
+  dados_SP_SP1 <- filter(dados_SP, str_detect(DIAG_PRINC, "C"))
+  # Filtrando CNES dos Hospitais especializados
+  dados_SP_SP2 <- filter(dados_SP_SP1, CNES == 2078287 | CNES == 2077574 | CNES == 2088576 |
+                           CNES == 2078015 | CNES == 2077531 | CNES == 2071371 | CNES == 2066572 |
+                           CNES == 2077523 | CNES == 2688689 | CNES == 2080575 | CNES == 2077477 |
+                           CNES == 2077485 | CNES == 2688573 | CNES == 2077590 | CNES == 2089696 |
+                           CNES == 2080125 | CNES == 6123740)
+  
+  # Retirando da Base colunas/variáveis sem informação relevantes ao trabalho, conforme:
+  # "Disseminação de Informações do Sistema de Informações Hospitalares (SIH)"
+  # ABAIXO NA 2a VERSÃO FORAM INCLUSAS AS VARIÁVEIS (QT_DIARIAS ; DIAR_ACOM ; DT_SAIDA ; DIAS_PERM)
+  dados_SP_SP3 <- dplyr::select(dados_SP_SP2, ANO_CMPT, MES_CMPT, CEP, MUNIC_RES, NASC,
+                                SEXO, PROC_REA, DIAG_PRINC, QT_DIARIAS, DIAR_ACOM, DT_INTER,
+                                DT_SAIDA, DIAS_PERM, MUNIC_MOV, IDADE, CNES)
+  
+  # Salvando Total AIHs dos Pacientes Oncológicos para os "17" CNES
+  save(dados_SP_SP3, file = paste0("dados_GERINITCC_",i,".RData"))
+  
+  # Filtrando somente pacientes internados do Range de CEPs (CEPs de 05650-000 até 05899-999)
+  dados_SP_SP4 <- filter(dados_SP_SP3,str_sub(CEP, end = 3)=="058" |str_sub(CEP, end = 3)=="057" |
+                           str_sub(CEP, end = 5)=="05641" | str_sub(CEP, end = 5)=="05642" |
+                           str_sub(CEP, end = 5)=="05656" | str_sub(CEP, end = 5)=="05657" |
+                           str_sub(CEP, end = 5)=="05660" | str_sub(CEP, end = 5)=="05661" |
+                           str_sub(CEP, end = 5)=="05662" | str_sub(CEP, end = 5)=="05663" |
+                           str_sub(CEP, end = 5)=="05664" | str_sub(CEP, end = 5)=="05665" )
+  
+  # Salvando informações Anuais P. Oncológicos, Start=2014
+  save(dados_SP_SP4, file = paste0("dados_INITCC_",i,".RData"))}
+
+################################################################################
+################################################################################
+# AQUI CONSOLIDANDO INFOS PARA OS "17" CNES E TODOS OS PACIENTES ONCOLÓGICOS ATENDIDOS
+load("dados_GERINITCC_2014.RData")
+dados14 <- dados_SP_SP3
+load("dados_GERINITCC_2015.RData")
+dados15 <- dados_SP_SP3
+load("dados_GERINITCC_2016.RData")
+dados16 <- dados_SP_SP3
+load("dados_GERINITCC_2017.RData")
+dados17 <- dados_SP_SP3
+load("dados_GERINITCC_2018.RData")
+dados18 <- dados_SP_SP3
+load("dados_GERINITCC_2019.RData")
+dados19 <- dados_SP_SP3
+load("dados_GERINITCC_2020.RData")
+dados20 <- dados_SP_SP3
+
+dados_SP_SPG <- bind_rows(dados14,dados15,dados16,dados17,dados18,dados19,dados20)
+
+# AQUI CONSOLIDANDO INFOS PARA OS "17" HOSPs NO INTERVALO DE CEPs
+load("dados_INITCC_2014.RData")
+dados21 <- dados_SP_SP4
+load("dados_INITCC_2015.RData")
+dados22 <- dados_SP_SP4
+load("dados_INITCC_2016.RData")
+dados23 <- dados_SP_SP4
+load("dados_INITCC_2017.RData")
+dados24 <- dados_SP_SP4
+load("dados_INITCC_2018.RData")
+dados25 <- dados_SP_SP4
+load("dados_INITCC_2019.RData")
+dados26 <- dados_SP_SP4
+load("dados_INITCC_2020.RData")
+dados27 <- dados_SP_SP4
+
+dados_SP_SP5 <- bind_rows(dados21,dados22,dados23,dados24,dados25,dados26,dados27)
+
+# Salvando informação aglutinada entre jan. 2014 e mar. 2020, GERAL E CEPs
+
+save(dados_SP_SPG, file = "dados_GERINITCC_Geral.RData")
+save(dados_SP_SP5, file = "dados_INITCC_Geral.RData")
+
+################################################################################
+# Salvando em MS_Excel os arquivos empilhados por mês de 2014 a 2020
+
+summary(dados_SP_SP5)
+summary(dados_SP_SPG)
+write_xlsx(dados_SP_SPG,"dados_SP_SP_GERAL.xlsx")
+write_xlsx(dados_SP_SP5,"dados_SP_SP_CEPS.xlsx")
+#####################################################################################
+# Criando DUAS listas únicas: GERAL e de CEPs de pacientes entre jan. 2014 e mar. 2020
+CEPs <- unique(dados_SP_SP5$CEP)
+CEPs <- as.data.frame(CEPs)
+CEPs <- arrange(CEPs,desc(CEPs))
+write_xlsx(CEPs,"CEPS_UNICOS_RI.xlsx")
+
+######################  FIM DO INICIO ###############################################
+#####################################################################################
+#####################################################################################
+######################  TRANSPOR DATA DE INTERNAÇÃO  ################################
+# CARREGAR ORIGINAIS
+INIGER <- read_excel("dados_SP_SP_GERAL.xlsx")
+INICEP <- read_excel("dados_SP_SP_CEPS.xlsx")
+# OU CONTINUAR
+INIGER <- dados_SP_SPG
+INICEP <- dados_SP_SP5
+
+# AJUSTAR VARIAVEIS DO "INICEP"
+INICEP$CNES <- as.factor(INICEP$CNES)
+INICEP$CEP <- as.character(INICEP$CEP)
+INICEP$DT_INTER <- as.character(INICEP$DT_INTER)
+INICEP$DT_INTER <- as.Date.character(INICEP$DT_INTER, tryFormats = c("%Y%m%d"))
+summary(INICEP)
+# AJUSTAR VARIAVEIS DO "INIGER"
+INIGER$CNES <- as.factor(INIGER$CNES)
+INIGER$CEP <- as.character(INIGER$CEP)
+INIGER$DT_INTER <- as.character(INIGER$DT_INTER)
+INIGER$DT_INTER <- as.Date.character(INIGER$DT_INTER, tryFormats = c("%Y%m%d"))
+summary(INIGER)
+######################################################################################
+# EXCLUIR DATAS DE INTERNAÇÃO MENORES QUE 2014
+install.packages("lubridate")
+library("lubridate")
+
+FINICEP <- filter(INICEP, INICEP$DT_INTER >= "2014-01-01")
+FINIGER <- filter(INIGER, INIGER$DT_INTER >= "2014-01-01")
+# CRIAR VARIAVEIS "ANO_I" E MES_I NAS BASES
+FINICEP <- mutate(FINICEP,ANO_I = year(DT_INTER),MES_I = month(DT_INTER))
+FINIGER <- mutate(FINIGER,ANO_I = year(DT_INTER),MES_I = month(DT_INTER))
+summary(FINICEP)
+summary(FINIGER) # AQUI A "OFICIAL_dados_SP_SP_GERAL.xlsx" fica pronta
+######################################################################################
+# Salvando a base de dados após exclusão das internações anteriores a 2014
+# "OFICIAL_dados_SP_SP_GERAL.xlsx" da base "FINIGER" e
+# "OFICIAL_dados_SP_SP_ESPECIF.xlsx" da base "FINICEP"
+
+write_xlsx(FINIGER,"OFICIAL_dados_SP_SP_GERAL.xlsx")
+write_xlsx(FINICEP,"OFICIAL_dados_SP_SP_ESPECIF.xlsx")
+
+######################################################################################
+
+# CARREGANDO A LISTA DE CEPS JÁ PRÉ FILTRADOS MANUALMENTE E GEORREFERENCIADOS PARA
+# FAZER MERGE COM "FINICEP"
+
+PacCEP <- read_excel("CEPs_Coord.xlsx")
+PacCEP <- rename(PacCEP, CEP = CEPs)
+PacCEP$CEP <- as.character(PacCEP$CEP)
+# FAZENDO O MERGE DAS BASES PARA EXCLUIR OS CEPs NÃO GEORREFERENCIADOS.
+FINICEPCLEAN <- left_join(FINICEP, PacCEP, by = "CEP")
+# EXCLUIR OS CEPs NÃO GEORREFERENCIADOS DA BASE DE DADOS
+FINICEPCLEAN <- FINICEPCLEAN[!is.na(FINICEPCLEAN$Lat),]
+summary(FINICEPCLEAN) # GEORREFERENCIADOS OS CEPs, FALTA TRAZER HOSPITAIS
+#####################################################################################
+# CARREGANDO A LISTA DE HOSPITAIS GEORREFERENCIADOS PARA MERGE COM "FINICEPCLEAN"
+HOSP <- read_excel("MAIS_CNES_17_HOSP_INFO.xlsx")
+FHOSP <- select(HOSP, CNES, Hlat, Hlong)
+FHOSP$CNES <- as.character(FHOSP$CNES)
+# FAZENDO O MERGE DAS BASES PARA TRAZER A LATITUDE E LONGITUDE DOS HOSPITAIS
+FINICEPCLEAN <- left_join(FINICEPCLEAN, FHOSP, by = "CNES")
+summary(FINICEPCLEAN) # AQUI A "OFICIAL_DADOS_SP_SP_CEPS_GEO.xlsx" fica pronta
+#####################################################################################
+# CALCULA A DISTANCIA ENTRE CEPs E HOSPITAIS CRIANDO A VARIAVEL "Dist_HCEP" VIA LOOP
+# INICIA TRANSFORMANDO AS LAT E LONG EM NÚMERO
+FINICEPCLEAN$Lat <- as.numeric(FINICEPCLEAN$Lat)
+FINICEPCLEAN$Long <- as.numeric(FINICEPCLEAN$Long)
+FINICEPCLEAN$Hlat <- as.numeric(FINICEPCLEAN$Hlat)
+FINICEPCLEAN$Hlong <- as.numeric(FINICEPCLEAN$Hlong)
+####################################################################################
+# CÁLCULO DA DISTÂNCIA ENTRE HOSPITAIS E OS RESPECTIVOS CEPs
+# CRIANDO VARIÁVEIS PARA O LOOP_FOR DE CONSTRUÇÃO
+k <- nrow(FINICEPCLEAN)
+Dist_HCEP <- NA
+# LOOP-FOR PARA CÁLCULO DAS DISTÂNCIAS
+for (i in 1:k) {
+  coord1 <- c(FINICEPCLEAN$Long[i],FINICEPCLEAN$Lat[i])
+  coord2 <- c(FINICEPCLEAN$Hlong[i],FINICEPCLEAN$Hlat[i])
+  Dist_HCEP[i] <-  distm(coord1,coord2, fun = distGeo)}
+# ALTERRANDO A ESCALA DE METROS PARA KILOMETROS
+FINICEPCLEAN$Dist_HCEP <- round(Dist_HCEP/1000,4)
+summary(FINICEPCLEAN)
+#SALVANDO EM EXCEL
+write_xlsx(FINICEPCLEAN, "FINICEPCLEAN.xlsx")
+####################################################################################
+# CRIAR NOVA BASE COM A DISTANCIA MEDIA MENSAL DOS INTERNADOS DA "FINICEPCLEAN"
+QWRT <- group_by(FINICEPCLEAN, ANO_I,MES_I)
+QWRT <- QWRT %>% summarise(Dist_M_H = mean(Dist_HCEP)) %>% 
+  ungroup () %>% droplevels(.) %>% 
+  mutate("Ano.Mes" = paste(ANO_I,MES_I, sep=".")) %>% 
+  select(ANO_I, MES_I, Ano.Mes, Dist_M_H)                  
+# SALVAR EXCEL
+write_xlsx(QWRT, "DIST_M_REGIAO.xlsx")
+#save(Master_HCEP,file = "HOSP_X_PACIENTE_Distancia.RData")
+###################################################################################
+# CALCULAR TENDENCIA COM MÉDIA MOVEL CENTRADA 12 MESES SERIE TEMPORAL
+###### Importando a base de dados (DISTÂNCIA MÉDIA MENSAL HOSPITAIS X CEP)
+STemp_Hosps <- read_excel("DIST_M_REGIAO.xlsx")
+
+# Transformar o data frame em série de tempo [VARIAVEL "dist_M_HCEP"]
+Dist_Med_HCEP = ts(STemp_Hosps$Dist_M_H,start=c(2014,1), end=c(2020,3), frequency = 12)
+
+# Plotar
+plot(Dist_Med_HCEP, main="Distância Média Mensal Internados da Regiao X Todos Hospitais",
+     xlab="Mensal - jan/2014 a mar/2020")
+
+# DECOMPOSIÇÃO
+#Vamos aqui decompor as series temporais em suas componentes Tedência, Sazonal e Erros
+# Decomposição pelo modelo ADITIVO
+decompdist = decompose(Dist_Med_HCEP,type = "additive")
+
+# PLOT Decomposições
+plot(decompdist)
+
+# Valores das decomposições "decompdist"
+decompdist$trend
+
+# juntando
+
+STemp_Hosps <- STemp_Hosps %>% mutate("Tend")
+STemp_Hosps$`"Tend"`<- decompdist$trend
+
+# Salvando
+
+write_xlsx(STemp_Hosps, "TEND_DIST_M_REGIAO.xlsx")
+
+####################################################################################
+# CRIAR NOVAS BASES COM A CONTAGEM DE INTERNAÇÕES POR CNES e MÊS, "FINICEPCLEAN" e "FINIGER"
+# CRIANDO INICIALMENTE A DADOS GERAL COM TODOS OS INTERNADOS DE CADA HOSPITAL
+YZKM <- group_by(FINIGER, ANO_I, MES_I, CNES)
+YZKM <- YZKM %>% mutate("QTD_INTER","CNES","Ano.Mes") %>% 
+summarise("QTD_INTER" = n()) %>% 
+ungroup () %>% droplevels(.) %>% 
+mutate ("Ano.Mes" = paste(ANO_I,MES_I, sep=".")) %>% 
+select(ANO_I, MES_I, Ano.Mes,CNES,QTD_INTER)
+YZKM <- arrange(YZKM,desc(CNES)) # BASE CONSEQUIDA, FALTA ARRUMAR POR CNES
+#########################################
+AA <- filter(YZKM, CNES=="2071371") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2071371" = QTD_INTER)
+BB <- filter(YZKM, CNES=="2077485") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077485" = QTD_INTER)
+CC <- filter(YZKM, CNES=="2089696") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2089696" = QTD_INTER)
+DD <- filter(YZKM, CNES=="2078015") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2078015" = QTD_INTER)
+EE <- filter(YZKM, CNES=="6123740") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("6123740" = QTD_INTER)
+FF <- filter(YZKM, CNES=="2088576") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2088576" = QTD_INTER)
+GG <- filter(YZKM, CNES=="2080575") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2080575" = QTD_INTER)
+HH <- filter(YZKM, CNES=="2077531") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077531" = QTD_INTER)
+II <- filter(YZKM, CNES=="2078287") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2078287" = QTD_INTER)
+JJ <- filter(YZKM, CNES=="2688689") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2688689" = QTD_INTER)
+KK <- filter(YZKM, CNES=="2080125") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2080125" = QTD_INTER)
+LL <- filter(YZKM, CNES=="2077523") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077523" = QTD_INTER)
+MM <- filter(YZKM, CNES=="2066572") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2066572" = QTD_INTER)
+NN <- filter(YZKM, CNES=="2077590") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077590" = QTD_INTER)
+OO <- filter(YZKM, CNES=="2688573") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2688573" = QTD_INTER)
+PP <- filter(YZKM, CNES=="2077574") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077574" = QTD_INTER)
+QQ <- filter(YZKM, CNES=="2077477") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077477" = QTD_INTER)
+
+A <- left_join(AA, BB[,3:4], by = "Ano.Mes")
+A <- A %>% left_join(CC[,3:4], by = "Ano.Mes") %>% 
+left_join(DD[,3:4], by = "Ano.Mes") %>% 
+left_join(EE[,3:4], by = "Ano.Mes") %>% 
+left_join(FF[,3:4], by = "Ano.Mes") %>% 
+left_join(GG[,3:4], by = "Ano.Mes") %>% 
+left_join(HH[,3:4], by = "Ano.Mes") %>% 
+left_join(II[,3:4], by = "Ano.Mes") %>% 
+left_join(JJ[,3:4], by = "Ano.Mes") %>% 
+left_join(KK[,3:4], by = "Ano.Mes") %>% 
+left_join(LL[,3:4], by = "Ano.Mes") %>% 
+left_join(MM[,3:4], by = "Ano.Mes") %>% 
+left_join(NN[,3:4], by = "Ano.Mes") %>% 
+left_join(OO[,3:4], by = "Ano.Mes") %>% 
+left_join(PP[,3:4], by = "Ano.Mes") %>% 
+left_join(QQ[,3:4], by = "Ano.Mes")
+
+A <- mutate(A, "Total"= rowSums(A[,4:20],na.rm = TRUE))
+
+# SALVANDO EM UMA BASE DE DADOS "EXCEL"
+# write_xlsx(A,"PYZKM_QTD_TOTAL.xlsx")
+#######################################################
+# AGORA CRIANDO A BASE DE DADOS ESPECÍFICA DOS INTERNADOS DA REGIÃO
+RDDD <- group_by(FINICEPCLEAN, ANO_I, MES_I, CNES)
+RDDD <- RDDD %>% mutate("QTD_INTER","CNES","Ano.Mes") %>% 
+  summarise("QTD_INTER" = n()) %>% 
+  ungroup () %>% droplevels(.) %>% 
+  mutate ("Ano.Mes" = paste(ANO_I,MES_I, sep=".")) %>% 
+  select(ANO_I, MES_I, Ano.Mes,CNES,QTD_INTER)
+RDDD <- arrange(RDDD,desc(CNES)) # BASE CONSEQUIDA, FALTA ARRUMAR POR CNES
+#########################################
+AA <- filter(RDDD, CNES=="2071371") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2071371" = QTD_INTER)
+BB <- filter(RDDD, CNES=="2077485") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077485" = QTD_INTER)
+CC <- filter(RDDD, CNES=="2089696") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2089696" = QTD_INTER)
+DD <- filter(RDDD, CNES=="2078015") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2078015" = QTD_INTER)
+EE <- filter(RDDD, CNES=="6123740") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("6123740" = QTD_INTER)
+FF <- filter(RDDD, CNES=="2088576") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2088576" = QTD_INTER)
+GG <- filter(RDDD, CNES=="2080575") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2080575" = QTD_INTER)
+HH <- filter(RDDD, CNES=="2077531") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077531" = QTD_INTER)
+II <- filter(RDDD, CNES=="2078287") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2078287" = QTD_INTER)
+JJ <- filter(RDDD, CNES=="2688689") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2688689" = QTD_INTER)
+KK <- filter(RDDD, CNES=="2080125") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2080125" = QTD_INTER)
+LL <- filter(RDDD, CNES=="2077523") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077523" = QTD_INTER)
+MM <- filter(RDDD, CNES=="2066572") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2066572" = QTD_INTER)
+NN <- filter(RDDD, CNES=="2077590") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077590" = QTD_INTER)
+OO <- filter(RDDD, CNES=="2688573") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2688573" = QTD_INTER)
+PP <- filter(RDDD, CNES=="2077574") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077574" = QTD_INTER)
+QQ <- filter(RDDD, CNES=="2077477") %>% 
+  select(ANO_I, MES_I, Ano.Mes, QTD_INTER) %>% 
+  rename("2077477" = QTD_INTER)
+
+B <- left_join(AA, BB[,3:4], by = "Ano.Mes")
+B <- left_join(B, CC[,3:4], by = "Ano.Mes") %>% 
+left_join(DD[,3:4], by = "Ano.Mes") %>% 
+left_join(EE[,3:4], by = "Ano.Mes") %>% 
+left_join(FF[,3:4], by = "Ano.Mes") %>% 
+left_join(GG[,3:4], by = "Ano.Mes") %>% 
+left_join(HH[,3:4], by = "Ano.Mes") %>% 
+left_join(II[,3:4], by = "Ano.Mes") %>% 
+left_join(JJ[,3:4], by = "Ano.Mes") %>% 
+left_join(KK[,3:4], by = "Ano.Mes") %>% 
+left_join(LL[,3:4], by = "Ano.Mes") %>% 
+left_join(MM[,3:4], by = "Ano.Mes") %>% 
+left_join(NN[,3:4], by = "Ano.Mes") %>% 
+left_join(OO[,3:4], by = "Ano.Mes") %>% 
+left_join(PP[,3:4], by = "Ano.Mes") %>% 
+left_join(QQ[,3:4], by = "Ano.Mes")
+
+B <- mutate(B, "Total"= rowSums(B[,4:20],na.rm = TRUE))
+
+# SALVANDO EM UMA BASE DE DADOS "EXCEL"
+write_xlsx(A,"GERAL_QTD_TOTAL.xlsx")
+# SALVANDO EM UMA BASE DE DADOS "EXCEL"
+write_xlsx(B,"ESPEC_QTD_REGIAO.xlsx")
+################################################################################
+# Calculo da Participação Percentual de cada CNES nas internações da região 
+NBASE <- B
+
+# LOOP-FOR PARA CÁLCULO DOS PERCENTUAIS
+for (i in 4:20) {
+  NBASE[,i] <- NBASE[,i]/NBASE[,21]
+  }
+# Exclui o totalizador, variável "Total"
+NBASE <- NBASE[,1:20]
+# Inclui totalizador percentual, nova variável TPerc
+NBASE <- mutate(NBASE, "TPerc"= rowSums(NBASE[,4:20],na.rm = TRUE))
+write_xlsx(NBASE,"PARTICIP_HOSP_INTER_REGIAO.xlsx")
+################################################################################
+# Calculo da participação dos internados da região no Total de vagas utilizadas
+# para o tratamento de câncer em cada CNES, por mês.
+NBASE <- B
+GBASE <- A
+TBASE <- A[,1:3]
+
+# LOOP-FOR PARA CÁLCULO DOS PERCENTUAIS
+for (i in 4:21) {
+  TBASE[,i] <- NBASE[,i]/GBASE[,i]
+}
+
+write_xlsx(TBASE,"PARTICIP_INTER_REGIAO_HOSP.xlsx")
+################################################################################
+
+################################################################################
+
+# Instalados pacotes adicionais para o tratamento de dados
+install.packages("rgdal")
+install.packages("geosphere")
+# Chamadas as bibliotecas adicionais para o tratamento de dados
+library(rgdal)
+library(geosphere)
+
+# Carregando shapefile, site de informações do município de São Paulo
+# <http://geosampa.prefeitura.sp.gov.br/PaginasPublicas/_SBC.aspx>,
+# shapefile "DEINFO_SUBPREFEITURAS" em "LAYERS_GEOLOG"
+shp_subp <- readOGR(dsn = "LAYERS_GEOLOG", layer = "DEINFO_SUBPREFEITURAS")
+
+shp_subp@data # Identificada Sub-Prefeitura de Campo Limpo ID == 4
+shp_subp@proj4string # Verificado Datum Corrego Alegre 1970-72/ UTM zone 23S
+class(shp_subp) # Identificada Classe do Shape file
+
+# Transformando Datum de Corrego Alegre 1970-72/ UTM zone 23S para WGS84
+shp_subpGEO <- spTransform(x = shp_subp, CRSobj = CRS("+proj=longlat +datum=WGS84"))
+shp_subpGEO@proj4string # Verificando novo "Datum"
+coordinates(shp_subpGEO) # Obtidas as Coordenadas de todas as Sub-Prefeituras
+
+# Identificado centroide da Sub-Prefeitura de Campo Limpo
+Centroi_SP <- coordinates(shp_subpGEO[shp_subpGEO@data$ID == 4, ])
+Centroi_SP <- as.data.frame(Centroi_SP)
+Centroi_SP <- dplyr::rename(Centroi_SP,Clong = V1, Clat = V2)
+view(Centroi_SP)
+
+################################################################################
+summary(shp_subpGEO[shp_subpGEO@data$ID == 4])
+################################################################################
+
+# Lendo arquivo de informações hospitalares para complementá-lo
+HOSP <- read_excel("MAIS_CNES_17_HOSP_INFO.xlsx")
+
+HOSP$Clat <- Centroi_SP$Clat
+HOSP$Clong <- Centroi_SP$Clong
+
+##################################################################################
+# CÁLCULO DA DISTÂNCIA ENTRE HOSPITAIS E O CENTROIDE DA SUBPREF. CAMPO LIMPO
+k <- nrow(HOSP)
+distPH <- NA
+
+HOSP$Hlat <- as.numeric(HOSP$Hlat)
+HOSP$Hlong <- as.numeric(HOSP$Hlong)
+HOSP$Clat <- as.numeric(HOSP$Clat)
+HOSP$Clong <- as.numeric(HOSP$Clong)
+
+# Calculo Distancia
+for (i in 1:k) {
+  coord1 <- c(HOSP$Hlong[i],HOSP$Hlat[i])
+  coord2 <- c(HOSP$Clong[i],HOSP$Clat[i])
+  distPH[i] <- distm(coord1,coord2, fun = distGeo)}
+
+HOSP$distPH <- round(distPH/1000,4)
+write_xlsx(HOSP, "MAIS_CNES_17_HOSP_INFO.xlsx")
+#################################################################################
+#################################################################################
+# Calcular a média móvel centrada 12 meses da Participação Percentual de cada 
+# CNES nas internações da região ou sua curva de tendência
+# Importando as bases de dados, "PARTICIP_HOSP_INTER_REGIAO.xlsx" e
+# "PARTICIP_INTER_REGIAO_HOSP.xlsx"
+
+STPartHIR <- read_excel("PARTICIP_HOSP_INTER_REGIAO.xlsx")
+STPartIRH <- read.excel("PARTICIP_INTER_REGIAO_HOSP.xlsx")
+
+# Transformar os data frames em série de tempo [VARIAVEL "dist_M_HCEP"]
+Dist_Med_HCEP = ts(STemp_Hosps$Dist_M_H,start=c(2014,1), end=c(2020,3), frequency = 12)
+
+# Plotar
+plot(Dist_Med_HCEP, main="Distância Média Mensal Internados da Regiao X Todos Hospitais",
+     xlab="Mensal - jan/2014 a mar/2020")
+
+# DECOMPOSIÇÃO
+#Vamos aqui decompor as series temporais em suas componentes Tedência, Sazonal e Erros
+# Decomposição pelo modelo ADITIVO
+decompdist = decompose(Dist_Med_HCEP,type = "additive")
+
+# PLOT Decomposições
+plot(decompdist)
+
+# Valores das decomposições "decompdist"
+decompdist$trend
+
+# juntando
+
+STemp_Hosps <- STemp_Hosps %>% mutate("Tend")
+STemp_Hosps$`"Tend"`<- decompdist$trend
+
+# Salvando
+write_xlsx(STemp_Hosps, "TEND_DIST_M_REGIAO.xlsx")
+
+
+#######################################################################################
+##################################  MAPAS  ############################################
+#######################################################################################
+
+# Carregando um shapefile -------------------------------------------------
+shp_subp <- readOGR(dsn = "LAYERS_GEOLOG", layer = "DEINFO_SUBPREFEITURAS")
+shp_SIR_Metro <- readOGR(dsn = "METRO", layer = "SIRGAS_SHP_linhametro_line")
+
+# Transformando Datum de Corrego Alegre 1970-72/ UTM zone 23S para WGS84
+shp_subpGEO <- spTransform(x = shp_subp, CRSobj = CRS("+proj=longlat +datum=WGS84"))
+shp_subpGEO@proj4string # Verificando novo "Datum"
+
+# Transformando Datum de Sistema_de_Referencia_Geocentrico_para_las_AmericaS_2000
+# / UTM zone 23S para WGS84
+shp_MetroGEO <- spTransform(x = shp_SIR_Metro, CRSobj = CRS("+proj=longlat +datum=WGS84"))
+shp_MetroGEO@proj4string # Verificando novo "Datum"
+
+# Transformando "shp_MetroGEO" em sf
+shp_MetroGEO <- st_as_sf(x = shp_MetroGEO, 
+                         coords = c("long", "lat"), 
+                         crs = 4326) #4326
+
+# Carregando e transformando dataframe de coordenadas
+shp_CEPs <- read_excel("CEPs_Coord.xlsx")
+shp_CEPs <- st_as_sf(x = shp_CEPs, 
+                         coords = c("Long", "Lat"), 
+                         crs = 4326) #4326
+
+# Definindo Sub-Prefeitura de Campo Limpo
+shp_camplimp <- shp_subpGEO[shp_subpGEO@data$ID==4, ]
+
+# Identificado centroide da Sub-Prefeitura de Campo Limpo
+Centroi_SP <- coordinates(shp_subpGEO[shp_subpGEO@data$ID == 4, ])
+Centroi_SP <- as.data.frame(Centroi_SP)
+Centroi_SP <- dplyr::rename(Centroi_SP,Clong = V1, Clat = V2)
+
+# Transformando Centroide em SF
+sf_Centroi_SP <- st_as_sf(x = Centroi_SP, 
+                          coords = c("Clong", "Clat"), 
+                          crs = 4326) #4326
+
+# Lendo Posição Geográfica dos Hospitais - CNES
+Hosp <- read_excel("MAIS_CNES_17_HOSP_INFO.xlsx")
+Hosp <- dplyr::select(Hosp, CNES, Hlat, Hlong)
+# Transformando Hospitais em SF
+Hosp_R <- st_as_sf(x = Hosp, 
+                   coords = c("Hlong", "Hlat"), 
+                   crs = 4326)
+
+# Mapas 
+tm_shape(shp = shp_subpGEO) + 
+  tm_borders(alpha = 1) +
+  tm_shape(shp = shp_camplimp) + 
+  tm_borders(lwd = 2.5) +
+  tm_shape(shp = sf_Centroi_SP) + 
+  tm_dots(col = "black", 
+          border.col = "black", 
+          size = 0.07, 
+          alpha = 0.8) +
+  tm_shape(shp = shp_MetroGEO) + 
+  tm_lines(col="blue",lwd=1.8, alpha = 1) +
+  tm_shape(shp = Hosp_R) + 
+  tm_dots(col = "red", 
+          border.col = "Black", 
+          size = 0.08, 
+          alpha = 0.8) +
+  tm_shape(shp = shp_CEPs) + 
+  tm_dots(col = "green", 
+          border.col = "Black", 
+          size = 0.03, 
+          alpha = 0.8)
